@@ -1,0 +1,116 @@
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.title {
+  font-size: 2rem;
+  margin-bottom: 4px;
+}
+
+.subtitle {
+  color: #888;
+  margin-bottom: 32px;
+}
+
+.importBox {
+  background: #16213e;
+  border: 1px solid #2a2a5e;
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 32px;
+}
+
+.importBox h2 {
+  margin-bottom: 8px;
+}
+
+.hint {
+  color: #888;
+  font-size: 0.875rem;
+  margin-bottom: 12px;
+}
+
+.importRow {
+  display: flex;
+  gap: 8px;
+}
+
+.pathInput {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+}
+
+.importBtn {
+  padding: 8px 20px;
+  background: #4a9eff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.importBtn:hover:not(:disabled) {
+  background: #3a8eef;
+}
+
+.importBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error {
+  color: #ff6b6b;
+  margin-top: 12px;
+  font-size: 0.875rem;
+}
+
+.projectsSection h2 {
+  margin-bottom: 16px;
+}
+
+.empty {
+  color: #666;
+}
+
+.projectList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.projectItem {
+  width: 100%;
+}
+
+.projectBtn {
+  width: 100%;
+  background: #16213e;
+  border: 1px solid #2a2a5e;
+  border-radius: 8px;
+  padding: 16px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color 0.15s;
+}
+
+.projectBtn:hover {
+  border-color: #4a9eff;
+}
+
+.projectName {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #e0e0e0;
+}
+
+.projectMeta {
+  font-size: 0.8rem;
+  color: #888;
+}

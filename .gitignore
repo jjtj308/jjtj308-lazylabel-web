@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.uv/
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Data
+.local/
+*.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# macOS
+.DS_Store
+
+# Env
+.env
+.env.local
+
+# TypeScript build info (generated artifacts)
+*.tsbuildinfo
