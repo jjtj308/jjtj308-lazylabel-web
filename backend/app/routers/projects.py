@@ -59,7 +59,12 @@ def get_frame_image(project_id: str, frame_index: int) -> FileResponse:
         path = project_service.get_frame_image_path(project_id, frame_index)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return FileResponse(str(path), media_type="image/jpeg")
+    # Frames are immutable once extracted, so they can be cached indefinitely.
+    return FileResponse(
+        str(path),
+        media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
 
 
 @router.get("/projects/{project_id}/frames/{frame_index}/mask")
