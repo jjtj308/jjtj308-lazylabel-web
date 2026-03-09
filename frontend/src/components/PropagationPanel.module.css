@@ -1,0 +1,83 @@
+.panel {
+  border-top: 1px solid #2a2a5e;
+  padding: 12px 0;
+}
+
+.panel h3 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #888;
+  margin-bottom: 10px;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+}
+
+.field label {
+  min-width: 110px;
+  color: #ccc;
+}
+
+.field input,
+.field select {
+  flex: 1;
+  padding: 4px 6px;
+  font-size: 0.85rem;
+}
+
+.startBtn {
+  width: 100%;
+  background: #2a5e3a;
+  color: #aaffcc;
+  border: 1px solid #3a8e5a;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  margin-top: 4px;
+}
+
+.startBtn:hover:not(:disabled) { background: #3a7e4a; }
+.startBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.progress {
+  margin-top: 10px;
+}
+
+.progressBar {
+  background: #2a2a4e;
+  border-radius: 4px;
+  height: 8px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.progressFill {
+  height: 100%;
+  background: #4a9eff;
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+
+.progressText {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.success {
+  color: #4aff9a;
+  font-size: 0.8rem;
+  margin-top: 8px;
+}
+
+.err {
+  color: #ff6b6b;
+  font-size: 0.8rem;
+  margin-top: 8px;
+  word-break: break-word;
+}
