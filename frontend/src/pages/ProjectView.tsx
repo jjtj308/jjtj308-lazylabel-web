@@ -7,12 +7,15 @@ import styles from './ProjectView.module.css'
 
 type PromptMode = 'point' | 'box'
 type BoxCoords = [number, number, number, number] // [x1, y1, x2, y2]
+type DisplayMode = 'mask' | 'bbox' | 'both'
 
 const ZOOM_FACTOR = 1.1
 const MIN_ZOOM = 0.05
 const MAX_ZOOM = 10
 const MIN_BOX_SIZE_PX = 4
 const BOX_DASH_PATTERN: [number, number] = [6, 3]
+// Max dimension when sampling mask for bbox computation (performance optimisation)
+const BBOX_SAMPLE_MAX = 512
 
 export default function ProjectView() {
   const { projectId } = useParams<{ projectId: string }>()
@@ -27,6 +30,9 @@ export default function ProjectView() {
   const [box, setBox] = useState<BoxCoords | null>(null)
   const [maskVisible, setMaskVisible] = useState(true)
   const [maskOpacity, setMaskOpacity] = useState(0.5)
+  const [displayMode, setDisplayMode] = useState<DisplayMode>('mask')
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [playbackFps, setPlaybackFps] = useState(10)
   const [running, setRunning] = useState(false)
   const [status, setStatus] = useState<string>('')
   const [maskBuster, setMaskBuster] = useState(0)
@@ -89,6 +95,22 @@ export default function ProjectView() {
     return () => wrapper.removeEventListener('wheel', handleWheel)
   }, [])
 
+  // Playback: auto-advance frames at the selected FPS
+  useEffect(() => {
+    if (!isPlaying || !meta) return
+    const intervalMs = 1000 / playbackFps
+    const id = setInterval(() => {
+      setCurrentFrame((prev) => {
+        if (prev >= meta.frame_count - 1) {
+          setIsPlaying(false)
+          return prev
+        }
+        return prev + 1
+      })
+    }, intervalMs)
+    return () => clearInterval(id)
+  }, [isPlaying, playbackFps, meta])
+
   // Render canvas whenever frame/mask/points/box/zoom change
   useEffect(() => {
     if (!meta || !projectId) return
@@ -118,7 +140,40 @@ export default function ProjectView() {
     }).catch((err) => {
       console.error('Failed to load frame', currentFrame, err)
     })
-  }, [currentFrame, meta, projectId, maskVisible, maskOpacity, maskBuster, frames, positivePoints, negativePoints, box, liveBox, loadFrame])
+  }, [currentFrame, meta, projectId, maskVisible, maskOpacity, maskBuster, frames, positivePoints, negativePoints, box, liveBox, loadFrame, displayMode])
+
+  // Compute the bounding rectangle of the non-zero pixels in a mask image.
+  // Uses a downsampled canvas for performance (BBOX_SAMPLE_MAX on longest side).
+  function computeMaskBBox(mask: HTMLImageElement): [number, number, number, number] | null {
+    const scale = Math.min(1, BBOX_SAMPLE_MAX / Math.max(mask.naturalWidth, mask.naturalHeight))
+    const w = Math.round(mask.naturalWidth * scale)
+    const h = Math.round(mask.naturalHeight * scale)
+    const offscreen = document.createElement('canvas')
+    offscreen.width = w
+    offscreen.height = h
+    const oCtx = offscreen.getContext('2d')!
+    oCtx.drawImage(mask, 0, 0, w, h)
+    const { data } = oCtx.getImageData(0, 0, w, h)
+    let minX = w, minY = h, maxX = -1, maxY = -1
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4
+        if (data[i] > 0 || data[i + 1] > 0 || data[i + 2] > 0 || data[i + 3] > 0) {
+          if (x < minX) minX = x
+          if (y < minY) minY = y
+          if (x > maxX) maxX = x
+          if (y > maxY) maxY = y
+        }
+      }
+    }
+    if (maxX < 0) return null
+    return [
+      Math.floor(minX / scale),
+      Math.floor(minY / scale),
+      Math.ceil((maxX + 1) / scale),
+      Math.ceil((maxY + 1) / scale),
+    ]
+  }
 
   function drawCanvas(
     ctx: CanvasRenderingContext2D,
@@ -129,19 +184,41 @@ export default function ProjectView() {
     ctx.drawImage(img, 0, 0)
 
     if (mask) {
-      ctx.globalAlpha = maskOpacity
-      ctx.globalCompositeOperation = 'source-over'
-      const offscreen = document.createElement('canvas')
-      offscreen.width = ctx.canvas.width
-      offscreen.height = ctx.canvas.height
-      const oCtx = offscreen.getContext('2d')!
-      oCtx.drawImage(mask, 0, 0)
-      oCtx.globalCompositeOperation = 'source-in'
-      oCtx.fillStyle = 'rgba(0, 200, 100, 1)'
-      oCtx.fillRect(0, 0, offscreen.width, offscreen.height)
-      ctx.drawImage(offscreen, 0, 0)
-      ctx.globalAlpha = 1
-      ctx.globalCompositeOperation = 'source-over'
+      // Mask overlay
+      if (displayMode === 'mask' || displayMode === 'both') {
+        ctx.globalAlpha = maskOpacity
+        ctx.globalCompositeOperation = 'source-over'
+        const offscreen = document.createElement('canvas')
+        offscreen.width = ctx.canvas.width
+        offscreen.height = ctx.canvas.height
+        const oCtx = offscreen.getContext('2d')!
+        oCtx.drawImage(mask, 0, 0)
+        oCtx.globalCompositeOperation = 'source-in'
+        oCtx.fillStyle = 'rgba(0, 200, 100, 1)'
+        oCtx.fillRect(0, 0, offscreen.width, offscreen.height)
+        ctx.drawImage(offscreen, 0, 0)
+        ctx.globalAlpha = 1
+        ctx.globalCompositeOperation = 'source-over'
+      }
+
+      // Bounding box derived from mask pixels
+      if (displayMode === 'bbox' || displayMode === 'both') {
+        const bbox = computeMaskBBox(mask)
+        if (bbox) {
+          const [x1, y1, x2, y2] = bbox
+          const lw = Math.max(2, Math.min(ctx.canvas.width, ctx.canvas.height) * 0.003)
+          ctx.save()
+          ctx.globalAlpha = maskOpacity
+          ctx.strokeStyle = 'rgba(0, 220, 100, 1)'
+          ctx.lineWidth = lw
+          ctx.setLineDash([])
+          ctx.strokeRect(x1, y1, x2 - x1, y2 - y1)
+          ctx.globalAlpha = maskOpacity * 0.15
+          ctx.fillStyle = 'rgba(0, 220, 100, 1)'
+          ctx.fillRect(x1, y1, x2 - x1, y2 - y1)
+          ctx.restore()
+        }
+      }
     }
 
     // Draw point prompts
@@ -437,8 +514,33 @@ export default function ProjectView() {
               checked={maskVisible}
               onChange={(e) => setMaskVisible(e.target.checked)}
             />
-            Show mask overlay
+            Show annotation overlay
           </label>
+          {maskVisible && (
+            <div className={styles.displayModeToggle}>
+              <button
+                className={displayMode === 'mask' ? styles.modeActive : styles.modeBtn}
+                onClick={() => setDisplayMode('mask')}
+                title="Show colored mask overlay"
+              >
+                Mask
+              </button>
+              <button
+                className={displayMode === 'bbox' ? styles.modeActive : styles.modeBtn}
+                onClick={() => setDisplayMode('bbox')}
+                title="Show bounding box around masked region"
+              >
+                BBox
+              </button>
+              <button
+                className={displayMode === 'both' ? styles.modeActive : styles.modeBtn}
+                onClick={() => setDisplayMode('both')}
+                title="Show both mask overlay and bounding box"
+              >
+                Both
+              </button>
+            </div>
+          )}
           <label className={styles.sliderRow}>
             Opacity
             <input
@@ -509,6 +611,28 @@ export default function ProjectView() {
             </button>
           </div>
         )}
+
+        {/* Playback controls */}
+        <div className={styles.playbackBar}>
+          <button
+            className={styles.playBtn}
+            onClick={() => setIsPlaying((p) => !p)}
+            title={isPlaying ? 'Pause playback' : 'Play frames at the selected FPS'}
+          >
+            {isPlaying ? '⏸ Pause' : '▶ Play'}
+          </button>
+          <span className={styles.fpsLabel}>{playbackFps} fps</span>
+          <input
+            type="range"
+            min={1}
+            max={30}
+            step={1}
+            value={playbackFps}
+            onChange={(e) => setPlaybackFps(parseInt(e.target.value))}
+            className={styles.fpsSlider}
+            title="Playback speed"
+          />
+        </div>
 
         {/* Timeline */}
         <div className={styles.timeline}>
