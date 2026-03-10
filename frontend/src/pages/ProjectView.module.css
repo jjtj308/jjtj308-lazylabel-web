@@ -241,6 +241,12 @@
   margin-bottom: 8px;
 }
 
+.displayModeToggle {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
 .modeBtn {
   flex: 1;
   background: #2a2a5e;
@@ -284,6 +290,42 @@
 }
 
 .zoomResetBtn:hover { color: #fff; border-color: #888; }
+
+.playbackBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: #16213e;
+  border-top: 1px solid #2a2a5e;
+}
+
+.playBtn {
+  background: #1e4d2e;
+  color: #7dffb0;
+  border: 1px solid #3a8a54;
+  border-radius: 4px;
+  padding: 4px 12px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.playBtn:hover { background: #2a6e3e; }
+
+.fpsLabel {
+  font-size: 0.75rem;
+  color: #888;
+  min-width: 44px;
+  text-align: right;
+}
+
+.fpsSlider {
+  flex: 1;
+  max-width: 120px;
+  padding: 0;
+  background: none;
+  border: none;
+}
 
 .loading {
   display: flex;
