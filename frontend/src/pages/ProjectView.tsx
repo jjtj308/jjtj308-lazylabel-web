@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { api, type FrameInfo, type Point, type ProjectMeta } from '../api/client'
+import { api, type ClassAlias, type FrameInfo, type Point, type ProjectMeta } from '../api/client'
 import { useFrameCache } from '../hooks/useFrameCache'
 import PropagationPanel from '../components/PropagationPanel'
 import styles from './ProjectView.module.css'
@@ -36,6 +36,12 @@ export default function ProjectView() {
   const [running, setRunning] = useState(false)
   const [status, setStatus] = useState<string>('')
   const [maskBuster, setMaskBuster] = useState(0)
+
+  // Class aliases
+  const [classes, setClasses] = useState<ClassAlias[]>([])
+  const [editingClasses, setEditingClasses] = useState<ClassAlias[]>([])
+  const [selectedClassId, setSelectedClassId] = useState<number | null>(null)
+  const [classesDirty, setClassesDirty] = useState(false)
 
   // Zoom state: null = fit-to-viewport (default CSS behavior)
   const [zoom, setZoom] = useState<number | null>(null)
@@ -73,6 +79,15 @@ export default function ProjectView() {
   useEffect(() => {
     refreshFrames()
   }, [refreshFrames])
+
+  // Load class aliases
+  useEffect(() => {
+    if (!projectId) return
+    api.getClasses(projectId).then((cls) => {
+      setClasses(cls)
+      setEditingClasses(cls)
+    })
+  }, [projectId])
 
   // Attach non-passive wheel listener for zoom (React's onWheel is passive in some browsers)
   useEffect(() => {
@@ -140,7 +155,7 @@ export default function ProjectView() {
     }).catch((err) => {
       console.error('Failed to load frame', currentFrame, err)
     })
-  }, [currentFrame, meta, projectId, maskVisible, maskOpacity, maskBuster, frames, positivePoints, negativePoints, box, liveBox, loadFrame, displayMode])
+  }, [currentFrame, meta, projectId, maskVisible, maskOpacity, maskBuster, frames, positivePoints, negativePoints, box, liveBox, loadFrame, displayMode, classes])
 
   // Compute the bounding rectangle of the non-zero pixels in a mask image.
   // Uses a downsampled canvas for performance (BBOX_SAMPLE_MAX on longest side).
@@ -183,6 +198,11 @@ export default function ProjectView() {
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
     ctx.drawImage(img, 0, 0)
 
+    // Resolve the class color for the current frame's label (if any)
+    const currentClassId = frames[currentFrame]?.class_id ?? null
+    const activeClass = currentClassId !== null ? classes.find((c) => c.id === currentClassId) : undefined
+    const maskColor = activeClass ? activeClass.color : '#00c864'
+
     if (mask) {
       // Mask overlay
       if (displayMode === 'mask' || displayMode === 'both') {
@@ -194,7 +214,7 @@ export default function ProjectView() {
         const oCtx = offscreen.getContext('2d')!
         oCtx.drawImage(mask, 0, 0)
         oCtx.globalCompositeOperation = 'source-in'
-        oCtx.fillStyle = 'rgba(0, 200, 100, 1)'
+        oCtx.fillStyle = maskColor
         oCtx.fillRect(0, 0, offscreen.width, offscreen.height)
         ctx.drawImage(offscreen, 0, 0)
         ctx.globalAlpha = 1
@@ -202,20 +222,41 @@ export default function ProjectView() {
       }
 
       // Bounding box derived from mask pixels
-      if (displayMode === 'bbox' || displayMode === 'both') {
-        const bbox = computeMaskBBox(mask)
-        if (bbox) {
-          const [x1, y1, x2, y2] = bbox
-          const lw = Math.max(2, Math.min(ctx.canvas.width, ctx.canvas.height) * 0.003)
+      const bbox = (displayMode === 'bbox' || displayMode === 'both') ? computeMaskBBox(mask) : null
+      if (bbox) {
+        const [x1, y1, x2, y2] = bbox
+        const lw = Math.max(2, Math.min(ctx.canvas.width, ctx.canvas.height) * 0.003)
+        ctx.save()
+        ctx.globalAlpha = maskOpacity
+        ctx.strokeStyle = maskColor
+        ctx.lineWidth = lw
+        ctx.setLineDash([])
+        ctx.strokeRect(x1, y1, x2 - x1, y2 - y1)
+        ctx.globalAlpha = maskOpacity * 0.15
+        ctx.fillStyle = maskColor
+        ctx.fillRect(x1, y1, x2 - x1, y2 - y1)
+        ctx.restore()
+      }
+
+      // Draw class label text over the mask region
+      if (activeClass) {
+        const labelBbox = bbox ?? computeMaskBBox(mask)
+        if (labelBbox) {
+          const [x1, y1] = labelBbox
+          const fontSize = Math.max(14, Math.min(ctx.canvas.width, ctx.canvas.height) * 0.028)
           ctx.save()
-          ctx.globalAlpha = maskOpacity
-          ctx.strokeStyle = 'rgba(0, 220, 100, 1)'
-          ctx.lineWidth = lw
-          ctx.setLineDash([])
-          ctx.strokeRect(x1, y1, x2 - x1, y2 - y1)
-          ctx.globalAlpha = maskOpacity * 0.15
-          ctx.fillStyle = 'rgba(0, 220, 100, 1)'
-          ctx.fillRect(x1, y1, x2 - x1, y2 - y1)
+          ctx.font = `bold ${fontSize}px sans-serif`
+          const textMetrics = ctx.measureText(activeClass.name)
+          const textW = textMetrics.width
+          const labelY = Math.max(fontSize + 4, y1 - 4)
+          // Semi-transparent background rectangle
+          ctx.globalAlpha = 0.75
+          ctx.fillStyle = '#000'
+          ctx.fillRect(x1, labelY - fontSize - 2, textW + 10, fontSize + 6)
+          // Label text in class color
+          ctx.globalAlpha = 1
+          ctx.fillStyle = maskColor
+          ctx.fillText(activeClass.name, x1 + 5, labelY)
           ctx.restore()
         }
       }
@@ -337,6 +378,9 @@ export default function ProjectView() {
     setStatus('Running SAM2 prompt…')
     try {
       await api.runPrompt(projectId, currentFrame, positivePoints, negativePoints, box)
+      if (selectedClassId !== null) {
+        await api.setFrameLabel(projectId, currentFrame, selectedClassId)
+      }
       setStatus('Mask generated ✓')
       setMaskBuster((b) => b + 1)
       refreshFrames()
@@ -397,6 +441,59 @@ export default function ProjectView() {
     zoomRef.current = null
   }
 
+  // ── Class alias management ──────────────────────────────────────────────────
+
+  const DEFAULT_COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#a855f7', '#06b6d4', '#f97316', '#ec4899']
+
+  function handleAddClass() {
+    // Use max of both saved and editing classes to avoid ID reuse after deletion
+    const allIds = [...classes.map((c) => c.id), ...editingClasses.map((c) => c.id)]
+    const nextId = allIds.length > 0 ? Math.max(...allIds) + 1 : 1
+    const color = DEFAULT_COLORS[(nextId - 1) % DEFAULT_COLORS.length]
+    setEditingClasses((prev) => [...prev, { id: nextId, name: `Class ${nextId}`, color }])
+    setClassesDirty(true)
+  }
+
+  function handleEditClassName(id: number, name: string) {
+    setEditingClasses((prev) => prev.map((c) => (c.id === id ? { ...c, name } : c)))
+    setClassesDirty(true)
+  }
+
+  function handleEditClassColor(id: number, color: string) {
+    setEditingClasses((prev) => prev.map((c) => (c.id === id ? { ...c, color } : c)))
+    setClassesDirty(true)
+  }
+
+  function handleDeleteClass(id: number) {
+    setEditingClasses((prev) => prev.filter((c) => c.id !== id))
+    if (selectedClassId === id) setSelectedClassId(null)
+    setClassesDirty(true)
+  }
+
+  async function handleSaveClasses() {
+    if (!projectId) return
+    try {
+      await api.saveClasses(projectId, editingClasses)
+      setClasses(editingClasses)
+      setClassesDirty(false)
+      setStatus('Classes saved ✓')
+    } catch (e) {
+      console.error('Failed to save classes', e)
+      setStatus('Failed to save classes.')
+    }
+  }
+
+  async function handleSetFrameLabel(classId: number | null) {
+    if (!projectId) return
+    try {
+      await api.setFrameLabel(projectId, currentFrame, classId)
+      refreshFrames()
+    } catch (e) {
+      console.error('Failed to update label', e)
+      setStatus('Failed to update label.')
+    }
+  }
+
   const currentHasMask = frames[currentFrame]?.has_mask ?? false
   const maskedFrameCount = frames.filter((f) => f.has_mask).length
 
@@ -444,6 +541,51 @@ export default function ProjectView() {
           </div>
         </div>
 
+        {/* Class Aliases */}
+        <div className={styles.section}>
+          <h3>Classes</h3>
+          {editingClasses.length === 0 && (
+            <p className={styles.hint}>No classes defined. Add one below.</p>
+          )}
+          <div className={styles.classList}>
+            {editingClasses.map((cls) => (
+              <div key={cls.id} className={styles.classRow}>
+                <input
+                  type="color"
+                  value={cls.color}
+                  className={styles.colorSwatch}
+                  onChange={(e) => handleEditClassColor(cls.id, e.target.value)}
+                  title="Class color"
+                />
+                <input
+                  type="text"
+                  value={cls.name}
+                  className={styles.classNameInput}
+                  onChange={(e) => handleEditClassName(cls.id, e.target.value)}
+                  placeholder="Class name"
+                />
+                <button
+                  className={styles.classDeleteBtn}
+                  onClick={() => handleDeleteClass(cls.id)}
+                  title="Delete class"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className={styles.btnGroup} style={{ marginTop: 8 }}>
+            <button className={styles.secondaryBtn} onClick={handleAddClass}>
+              + Add Class
+            </button>
+            {classesDirty && (
+              <button className={styles.primaryBtn} onClick={handleSaveClasses}>
+                💾 Save Classes
+              </button>
+            )}
+          </div>
+        </div>
+
         <div className={styles.section}>
           <h3>Prompts</h3>
           <div className={styles.modeToggle}>
@@ -460,6 +602,25 @@ export default function ProjectView() {
               ▭ Box
             </button>
           </div>
+
+          {/* Active class selector */}
+          {classes.length > 0 && (
+            <div className={styles.classSelector}>
+              <label className={styles.classSelectorLabel}>Label as:</label>
+              <select
+                className={styles.classSelectorSelect}
+                value={selectedClassId ?? ''}
+                onChange={(e) => setSelectedClassId(e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">— none —</option>
+                {classes.map((cls) => (
+                  <option key={cls.id} value={cls.id}>
+                    {cls.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {promptMode === 'point' ? (
             <>
@@ -552,6 +713,26 @@ export default function ProjectView() {
               onChange={(e) => setMaskOpacity(parseFloat(e.target.value))}
             />
           </label>
+          {/* Per-frame label assignment */}
+          {currentHasMask && classes.length > 0 && (
+            <div className={styles.frameLabelRow}>
+              <span className={styles.frameLabelText}>
+                Label:
+              </span>
+              <select
+                className={styles.classSelectorSelect}
+                value={frames[currentFrame]?.class_id ?? ''}
+                onChange={(e) => handleSetFrameLabel(e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">— none —</option>
+                {classes.map((cls) => (
+                  <option key={cls.id} value={cls.id}>
+                    {cls.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className={styles.btnGroup} style={{ marginTop: 8 }}>
             {currentHasMask && (
               <button className={styles.dangerBtn} onClick={handleDeleteMask}>

@@ -11,7 +11,7 @@ from typing import Any
 import cv2
 
 from app.config import PROJECTS_DIR
-from app.models.schemas import FrameInfo, ProjectMeta, ProjectSummary
+from app.models.schemas import ClassAlias, FrameInfo, ProjectMeta, ProjectSummary
 
 
 def _project_dir(project_id: str) -> Path:
@@ -109,10 +109,11 @@ def list_frames(project_id: str) -> list[FrameInfo]:
     meta = _read_meta(project_id)
     proj_dir = _project_dir(project_id)
     masks_dir = proj_dir / "masks"
+    labels = get_labels(project_id)
     result = []
     for i in range(meta.frame_count):
         mask_path = masks_dir / f"{i:06d}.png"
-        result.append(FrameInfo(frame_index=i, has_mask=mask_path.exists()))
+        result.append(FrameInfo(frame_index=i, has_mask=mask_path.exists(), class_id=labels.get(i)))
     return result
 
 
@@ -148,19 +149,67 @@ def clear_all_masks(project_id: str) -> int:
     return count
 
 
+# ── Class aliases ─────────────────────────────────────────────────────────────
+
+
+def get_classes(project_id: str) -> list[ClassAlias]:
+    """Return the list of class aliases for a project."""
+    path = _project_dir(project_id) / "classes.json"
+    if not path.exists():
+        return []
+    return [ClassAlias(**c) for c in json.loads(path.read_text())]
+
+
+def save_classes(project_id: str, classes: list[ClassAlias]) -> None:
+    """Persist the class alias list for a project."""
+    path = _project_dir(project_id) / "classes.json"
+    path.write_text(json.dumps([c.model_dump() for c in classes], indent=2))
+
+
+# ── Frame labels ──────────────────────────────────────────────────────────────
+
+
+def get_labels(project_id: str) -> dict[int, int]:
+    """Return a dict mapping frame_index -> class_id for all labelled frames."""
+    path = _project_dir(project_id) / "labels.json"
+    if not path.exists():
+        return {}
+    try:
+        return {int(k): v for k, v in json.loads(path.read_text()).items()}
+    except (ValueError, KeyError) as exc:
+        raise RuntimeError(f"Failed to parse labels.json for project {project_id}: {exc}") from exc
+
+
+def set_frame_label(project_id: str, frame_index: int, class_id: int | None) -> None:
+    """Assign (or clear) the class label for a single frame."""
+    labels = get_labels(project_id)
+    if class_id is None:
+        labels.pop(frame_index, None)
+    else:
+        labels[frame_index] = class_id
+    path = _project_dir(project_id) / "labels.json"
+    path.write_text(json.dumps(labels, indent=2))
+
+
 def export_masks_zip(project_id: str) -> bytes:
-    """Return a ZIP archive containing all mask PNGs and meta.json."""
+    """Return a ZIP archive containing all mask PNGs, meta.json, classes.json, and labels.json."""
     import io
     import zipfile
 
     proj_dir = _project_dir(project_id)
     masks_dir = proj_dir / "masks"
     meta_path = proj_dir / "meta.json"
+    classes_path = proj_dir / "classes.json"
+    labels_path = proj_dir / "labels.json"
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         if meta_path.exists():
             zf.write(meta_path, "meta.json")
+        if classes_path.exists():
+            zf.write(classes_path, "classes.json")
+        if labels_path.exists():
+            zf.write(labels_path, "labels.json")
         if masks_dir.exists():
             for mask_file in sorted(masks_dir.glob("*.png")):
                 zf.write(mask_file, f"masks/{mask_file.name}")

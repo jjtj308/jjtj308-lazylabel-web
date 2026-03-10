@@ -333,3 +333,93 @@
   justify-content: center;
   height: 100vh;
 }
+
+/* ── Class alias management ─────────────────────────────────────────────── */
+
+.classList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.classRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.colorSwatch {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.classNameInput {
+  flex: 1;
+  padding: 4px 6px;
+  font-size: 0.82rem;
+  background: #1a1a3e;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #eee;
+  min-width: 0;
+}
+
+.classDeleteBtn {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 2px 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.classDeleteBtn:hover { color: #ff6666; }
+
+/* ── Class / label selectors ────────────────────────────────────────────── */
+
+.classSelector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.classSelectorLabel {
+  font-size: 0.82rem;
+  color: #aaa;
+  white-space: nowrap;
+}
+
+.classSelectorSelect {
+  flex: 1;
+  padding: 4px 6px;
+  font-size: 0.82rem;
+  background: #1a1a3e;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #eee;
+  min-width: 0;
+}
+
+.frameLabelRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+.frameLabelText {
+  font-size: 0.82rem;
+  color: #aaa;
+  white-space: nowrap;
+}
