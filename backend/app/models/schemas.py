@@ -56,6 +56,7 @@ class ImportVideoResponse(BaseModel):
 class FrameInfo(BaseModel):
     frame_index: int
     has_mask: bool
+    class_id: int | None = None
 
 
 # ── Prompt ───────────────────────────────────────────────────────────────────
@@ -76,6 +77,23 @@ class PromptRequest(BaseModel):
 class PromptResponse(BaseModel):
     mask_url: str
     area_px: int
+
+
+# ── Classes / Labels ──────────────────────────────────────────────────────────
+
+
+class ClassAlias(BaseModel):
+    id: int
+    name: str
+    color: str = "#22c55e"
+
+
+class ClassAliasesRequest(BaseModel):
+    classes: list[ClassAlias]
+
+
+class FrameLabelRequest(BaseModel):
+    class_id: int | None = None
 
 
 # ── Propagation ──────────────────────────────────────────────────────────────
