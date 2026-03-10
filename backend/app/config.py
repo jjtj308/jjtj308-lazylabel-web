@@ -20,12 +20,20 @@ def _default_storage() -> Path:
 # Storage root — override with env var LAZYLABEL_WEB_DATA_DIR
 DATA_DIR: Path = Path(os.environ.get("LAZYLABEL_WEB_DATA_DIR", str(_default_storage())))
 
-# SAM2 weights — override with env var LAZYLABEL_WEB_SAM2_WEIGHTS
-SAM2_WEIGHTS: str | None = os.environ.get("LAZYLABEL_WEB_SAM2_WEIGHTS")
+# Models directory — default location for SAM2 config yaml and weights file.
+# Override with env var LAZYLABEL_WEB_MODELS_DIR.
+MODELS_DIR: Path = Path(os.environ.get("LAZYLABEL_WEB_MODELS_DIR", str(DATA_DIR / "models")))
 
-# SAM2 config yaml (relative to sam2 package, or absolute path)
+# SAM2 weights — defaults to MODELS_DIR/sam2.1_hiera_large.pt.
+# Override with env var LAZYLABEL_WEB_SAM2_WEIGHTS.
+SAM2_WEIGHTS: str = os.environ.get(
+    "LAZYLABEL_WEB_SAM2_WEIGHTS", str(MODELS_DIR / "sam2.1_hiera_large.pt")
+)
+
+# SAM2 config yaml — defaults to MODELS_DIR/sam2.1_hiera_large.yaml.
+# Override with env var LAZYLABEL_WEB_SAM2_CONFIG.
 SAM2_CONFIG: str = os.environ.get(
-    "LAZYLABEL_WEB_SAM2_CONFIG", "configs/sam2.1/sam2.1_hiera_large.yaml"
+    "LAZYLABEL_WEB_SAM2_CONFIG", str(MODELS_DIR / "sam2.1_hiera_large.yaml")
 )
 
 # Device: cuda / cpu / mps

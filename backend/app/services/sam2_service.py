@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 import threading
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-from app.config import DEVICE, SAM2_CONFIG, SAM2_WEIGHTS
+from app.config import DEVICE, MODELS_DIR, SAM2_CONFIG, SAM2_WEIGHTS
 
 
 class SAM2NotAvailable(RuntimeError):
@@ -34,10 +35,12 @@ def _load_predictor() -> Any:
                 "pip install git+https://github.com/facebookresearch/sam2.git"
             ) from exc
 
-        if SAM2_WEIGHTS is None:
+        weights_path = Path(SAM2_WEIGHTS)
+        if not weights_path.exists():
             raise SAM2NotAvailable(
-                "SAM2 weights not configured. "
-                "Set env var LAZYLABEL_WEB_SAM2_WEIGHTS=/path/to/sam2.1_hiera_large.pt"
+                f"SAM2 weights not found at '{SAM2_WEIGHTS}'. "
+                f"Place the weights file in {MODELS_DIR} or set "
+                "LAZYLABEL_WEB_SAM2_WEIGHTS=/path/to/sam2.1_hiera_large.pt"
             )
 
         import torch  # type: ignore
@@ -49,7 +52,30 @@ def _load_predictor() -> Any:
                 "Set LAZYLABEL_WEB_DEVICE=cpu (will be very slow) or ensure CUDA drivers are installed."
             )
 
-        _predictor = build_sam2_video_predictor(SAM2_CONFIG, SAM2_WEIGHTS, device=device)
+        # Initialize Hydra so SAM2 can locate the config file.
+        # Clear any pre-existing global Hydra instance to avoid conflicts.
+        from hydra.core.global_hydra import GlobalHydra  # type: ignore
+
+        GlobalHydra.instance().clear()
+
+        config_path = Path(SAM2_CONFIG)
+        resolved_config = config_path.resolve()
+
+        if resolved_config.exists():
+            # Config file found on disk — initialize Hydra to its parent directory.
+            from hydra import initialize_config_dir  # type: ignore
+
+            initialize_config_dir(config_dir=str(resolved_config.parent), version_base="1.2")
+            config_name = resolved_config.stem
+        else:
+            # Config not found on disk; treat it as a name relative to the working
+            # directory so SAM2 can resolve it via its own search paths.
+            from hydra import initialize  # type: ignore
+
+            initialize(config_path=".", version_base="1.2")
+            config_name = SAM2_CONFIG
+
+        _predictor = build_sam2_video_predictor(config_name, str(weights_path), device=device)
         return _predictor
 
 
