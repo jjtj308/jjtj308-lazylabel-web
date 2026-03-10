@@ -137,6 +137,36 @@ def delete_mask(project_id: str, frame_index: int) -> bool:
     return False
 
 
+def clear_all_masks(project_id: str) -> int:
+    """Delete all mask PNGs for a project. Returns the number of deleted files."""
+    masks_dir = _project_dir(project_id) / "masks"
+    count = 0
+    if masks_dir.exists():
+        for mask_file in masks_dir.glob("*.png"):
+            mask_file.unlink()
+            count += 1
+    return count
+
+
+def export_masks_zip(project_id: str) -> bytes:
+    """Return a ZIP archive containing all mask PNGs and meta.json."""
+    import io
+    import zipfile
+
+    proj_dir = _project_dir(project_id)
+    masks_dir = proj_dir / "masks"
+    meta_path = proj_dir / "meta.json"
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        if meta_path.exists():
+            zf.write(meta_path, "meta.json")
+        if masks_dir.exists():
+            for mask_file in sorted(masks_dir.glob("*.png")):
+                zf.write(mask_file, f"masks/{mask_file.name}")
+    return buf.getvalue()
+
+
 def save_mask_array(project_id: str, frame_index: int, mask_array: Any) -> Path:
     """Save a numpy boolean/uint8 mask as an RGBA PNG.
 

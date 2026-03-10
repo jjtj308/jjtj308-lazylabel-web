@@ -69,6 +69,7 @@ class Point(BaseModel):
 class PromptRequest(BaseModel):
     positive_points: list[Point] = []
     negative_points: list[Point] = []
+    box: list[float] | None = None  # [x1, y1, x2, y2] in image pixel coordinates
     save: bool = True
 
 

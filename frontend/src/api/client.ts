@@ -91,12 +91,13 @@ export const api = {
     frameIndex: number,
     positivePoints: Point[],
     negativePoints: Point[],
+    box?: [number, number, number, number] | null,
     save = true,
   ) =>
     request<PromptResponse>(`/projects/${projectId}/frames/${frameIndex}/prompt`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ positive_points: positivePoints, negative_points: negativePoints, save }),
+      body: JSON.stringify({ positive_points: positivePoints, negative_points: negativePoints, box: box ?? null, save }),
     }),
 
   cachePrompt: (
@@ -104,17 +105,26 @@ export const api = {
     frameIndex: number,
     positivePoints: Point[],
     negativePoints: Point[],
+    box?: [number, number, number, number] | null,
   ) =>
     request<{ cached: boolean }>(`/projects/${projectId}/frames/${frameIndex}/cache_prompt`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ positive_points: positivePoints, negative_points: negativePoints }),
+      body: JSON.stringify({ positive_points: positivePoints, negative_points: negativePoints, box: box ?? null }),
     }),
 
   deleteMask: (projectId: string, frameIndex: number) =>
     request<{ deleted: boolean }>(`/projects/${projectId}/frames/${frameIndex}/mask`, {
       method: 'DELETE',
     }),
+
+  clearAllMasks: (projectId: string) =>
+    request<{ deleted: number }>(`/projects/${projectId}/masks`, {
+      method: 'DELETE',
+    }),
+
+  exportMasksUrl: (projectId: string) =>
+    `${BASE}/projects/${projectId}/export`,
 
   propagate: (projectId: string, body: PropagateRequest) =>
     request<{ job_id: string }>(`/projects/${projectId}/propagate`, {

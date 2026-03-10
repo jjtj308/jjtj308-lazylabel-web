@@ -8,6 +8,7 @@ interface Props {
   currentFrame: number
   positivePoints: Point[]
   negativePoints: Point[]
+  box?: [number, number, number, number] | null
   onComplete: () => void
 }
 
@@ -17,6 +18,7 @@ export default function PropagationPanel({
   currentFrame,
   positivePoints,
   negativePoints,
+  box,
   onComplete,
 }: Props) {
   const [startFrame, setStartFrame] = useState(0)
@@ -58,7 +60,7 @@ export default function PropagationPanel({
     setStarting(true)
     try {
       // Cache prompts for propagation
-      await api.cachePrompt(projectId, referenceFrame, positivePoints, negativePoints)
+      await api.cachePrompt(projectId, referenceFrame, positivePoints, negativePoints, box)
       const { job_id } = await api.propagate(projectId, {
         start_frame: startFrame,
         end_frame: endFrame,
@@ -138,7 +140,7 @@ export default function PropagationPanel({
       <button
         className={styles.startBtn}
         onClick={handleStart}
-        disabled={starting || isRunning || (positivePoints.length === 0 && negativePoints.length === 0)}
+        disabled={starting || isRunning || (positivePoints.length === 0 && negativePoints.length === 0 && !box)}
       >
         {starting ? 'Starting…' : isRunning ? 'Propagating…' : '🚀 Start Propagation'}
       </button>
