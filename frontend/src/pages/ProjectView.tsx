@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api, type FrameInfo, type Point, type ProjectMeta } from '../api/client'
+import { useFrameCache } from '../hooks/useFrameCache'
 import PropagationPanel from '../components/PropagationPanel'
 import styles from './ProjectView.module.css'
 
@@ -22,6 +23,8 @@ export default function ProjectView() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const imgRef = useRef<HTMLImageElement | null>(null)
   const maskRef = useRef<HTMLImageElement | null>(null)
+
+  const { loadFrame } = useFrameCache(projectId, meta?.frame_count ?? 0, currentFrame, api.frameImageUrl)
 
   // Load project metadata
   useEffect(() => {
@@ -47,14 +50,9 @@ export default function ProjectView() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const frameUrl = api.frameImageUrl(projectId, currentFrame)
     const maskUrl = api.frameMaskUrl(projectId, currentFrame) + `?v=${maskBuster}`
 
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.src = frameUrl
-
-    img.onload = () => {
+    loadFrame(currentFrame).then((img) => {
       imgRef.current = img
       canvas.width = img.naturalWidth
       canvas.height = img.naturalHeight
@@ -70,8 +68,11 @@ export default function ProjectView() {
         }
         mask.onerror = () => drawCanvas(ctx, img, null)
       }
-    }
-  }, [currentFrame, meta, projectId, maskVisible, maskOpacity, maskBuster, frames, positivePoints, negativePoints])
+    }).catch((err) => {
+      // Log the error to aid debugging; leave the canvas as-is.
+      console.error('Failed to load frame', currentFrame, err)
+    })
+  }, [currentFrame, meta, projectId, maskVisible, maskOpacity, maskBuster, frames, positivePoints, negativePoints, loadFrame])
 
   function drawCanvas(
     ctx: CanvasRenderingContext2D,
