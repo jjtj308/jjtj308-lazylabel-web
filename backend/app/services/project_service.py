@@ -138,15 +138,23 @@ def delete_mask(project_id: str, frame_index: int) -> bool:
 
 
 def save_mask_array(project_id: str, frame_index: int, mask_array: Any) -> Path:
-    """Save a numpy boolean/uint8 mask as a binary PNG."""
+    """Save a numpy boolean/uint8 mask as an RGBA PNG.
+
+    The mask value is stored in the alpha channel so that non-mask pixels are
+    fully transparent (alpha=0) and mask pixels are fully opaque (alpha=255).
+    This allows the frontend to use canvas ``source-in`` compositing to tint
+    only the masked region without bleeding the colour into the background.
+    """
     from PIL import Image
     import numpy as np
 
     masks_dir = _project_dir(project_id) / "masks"
     masks_dir.mkdir(parents=True, exist_ok=True)
     out_path = masks_dir / f"{frame_index:06d}.png"
-    arr = (np.asarray(mask_array, dtype=bool).astype(np.uint8) * 255)
-    Image.fromarray(arr, mode="L").save(str(out_path))
+    alpha = (np.asarray(mask_array, dtype=bool).astype(np.uint8) * 255)
+    rgba = np.zeros(alpha.shape + (4,), dtype=np.uint8)
+    rgba[..., 3] = alpha
+    Image.fromarray(rgba, mode="RGBA").save(str(out_path))
     return out_path
 
 
