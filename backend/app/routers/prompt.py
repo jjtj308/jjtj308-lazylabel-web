@@ -25,6 +25,7 @@ def run_prompt(project_id: str, frame_index: int, body: PromptRequest) -> Prompt
             frame_index=frame_index,
             positive_points=[p.model_dump() for p in body.positive_points],
             negative_points=[p.model_dump() for p in body.negative_points],
+            box=body.box,
         )
     except sam2_service.SAM2NotAvailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

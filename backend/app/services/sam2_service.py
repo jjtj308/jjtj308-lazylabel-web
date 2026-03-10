@@ -91,6 +91,7 @@ def run_prompt(
     frame_index: int,
     positive_points: list[dict[str, float]],
     negative_points: list[dict[str, float]],
+    box: list[float] | None = None,
 ) -> np.ndarray:
     """Run SAM2 prompt on a single frame. Returns boolean mask array (H, W)."""
     predictor = _load_predictor()
@@ -106,8 +107,12 @@ def run_prompt(
         points.append([p["x"], p["y"]])
         labels.append(0)
 
-    np_points = np.array(points, dtype=np.float32) if points else np.empty((0, 2), dtype=np.float32)
-    np_labels = np.array(labels, dtype=np.int32) if labels else np.empty(0, dtype=np.int32)
+    np_points = np.array(points, dtype=np.float32) if points else None
+    np_labels = np.array(labels, dtype=np.int32) if labels else None
+    np_box = np.array(box, dtype=np.float32) if box is not None else None
+    # SAM2's add_new_points_or_box accepts None for points/labels when using a box,
+    # and None for box when using points only.  Passing empty arrays instead of None
+    # can cause shape-mismatch errors inside SAM2.
 
     import torch  # type: ignore
 
@@ -120,6 +125,7 @@ def run_prompt(
             obj_id=1,
             points=np_points,
             labels=np_labels,
+            box=np_box,
         )
 
     mask: np.ndarray = (masks_logits[0, 0].cpu().numpy() > 0.0)
@@ -136,6 +142,7 @@ def propagate(
     end_frame: int,
     direction: str,
     on_frame: Any,
+    box: list[float] | None = None,
 ) -> None:
     """
     Propagate from reference_frame outward.
@@ -153,8 +160,9 @@ def propagate(
         points.append([p["x"], p["y"]])
         labels.append(0)
 
-    np_points = np.array(points, dtype=np.float32) if points else np.empty((0, 2), dtype=np.float32)
-    np_labels = np.array(labels, dtype=np.int32) if labels else np.empty(0, dtype=np.int32)
+    np_points = np.array(points, dtype=np.float32) if points else None
+    np_labels = np.array(labels, dtype=np.int32) if labels else None
+    np_box = np.array(box, dtype=np.float32) if box is not None else None
 
     import torch  # type: ignore
 
@@ -166,6 +174,7 @@ def propagate(
             obj_id=1,
             points=np_points,
             labels=np_labels,
+            box=np_box,
         )
 
         # Propagate

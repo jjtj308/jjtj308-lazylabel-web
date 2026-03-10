@@ -49,6 +49,7 @@ def start_propagation(project_id: str, body: PropagateRequest) -> PropagateRespo
     frames_dir = str(PROJECTS_DIR / project_id / "frames")
     pos_pts = cached["positive_points"] if cached else []
     neg_pts = cached["negative_points"] if cached else []
+    box = cached.get("box") if cached else None
     ref_frame = cached.get("reference_frame", body.reference_frame) if cached else body.reference_frame
     direction = body.direction.value
     start_frame = body.start_frame
@@ -71,6 +72,7 @@ def start_propagation(project_id: str, body: PropagateRequest) -> PropagateRespo
             end_frame=end_frame,
             direction=direction,
             on_frame=on_frame,
+            box=box,
         )
 
     job_service.run_job_in_background(job, _propagate)
@@ -79,11 +81,12 @@ def start_propagation(project_id: str, body: PropagateRequest) -> PropagateRespo
 
 @router.post("/projects/{project_id}/frames/{frame_index}/cache_prompt")
 def cache_prompt(project_id: str, frame_index: int, body: dict) -> dict:
-    """Cache prompt points for propagation without running inference."""
+    """Cache prompt points and optional box for propagation without running inference."""
     with _prompt_cache_lock:
         _prompt_cache[project_id] = {
             "positive_points": body.get("positive_points", []),
             "negative_points": body.get("negative_points", []),
+            "box": body.get("box"),
             "reference_frame": frame_index,
         }
     return {"cached": True}

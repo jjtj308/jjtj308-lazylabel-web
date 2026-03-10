@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 from app.models.schemas import (
     FrameInfo,
@@ -81,3 +81,26 @@ def delete_frame_mask(project_id: str, frame_index: int) -> dict:
     if not deleted:
         raise HTTPException(status_code=404, detail="Mask not found")
     return {"deleted": True}
+
+
+@router.delete("/projects/{project_id}/masks")
+def clear_all_masks(project_id: str) -> dict:
+    if project_service.get_project(project_id) is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    count = project_service.clear_all_masks(project_id)
+    return {"deleted": count}
+
+
+@router.get("/projects/{project_id}/export")
+def export_project(project_id: str) -> Response:
+    meta = project_service.get_project(project_id)
+    if meta is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    data = project_service.export_masks_zip(project_id)
+    safe_name = meta.source_filename.replace('"', '_')
+    filename = f"{safe_name}_masks.zip"
+    return Response(
+        content=data,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
