@@ -7,7 +7,7 @@ from typing import Any
 
 import numpy as np
 
-from app.config import DEVICE, MODELS_DIR, SAM2_CONFIG, SAM2_WEIGHTS
+from app.config import DEVICE, SAM2_CHECKPOINT, SAM2_CONFIG
 
 
 class SAM2NotAvailable(RuntimeError):
@@ -35,12 +35,11 @@ def _load_predictor() -> Any:
                 "pip install git+https://github.com/facebookresearch/sam2.git"
             ) from exc
 
-        weights_path = Path(SAM2_WEIGHTS)
-        if not weights_path.exists():
+        weights_path = Path(SAM2_CHECKPOINT)
+        if not SAM2_CHECKPOINT or not weights_path.exists():
             raise SAM2NotAvailable(
-                f"SAM2 weights not found at '{SAM2_WEIGHTS}'. "
-                f"Place the weights file in {MODELS_DIR} or set "
-                "LAZYLABEL_WEB_SAM2_WEIGHTS=/path/to/sam2.1_hiera_large.pt"
+                f"SAM2 checkpoint not found at '{SAM2_CHECKPOINT}'. "
+                "Set LAZYLABEL_WEB_SAM2_CHECKPOINT=/path/to/sam2.1_hiera_large.pt"
             )
 
         import torch  # type: ignore
@@ -52,27 +51,26 @@ def _load_predictor() -> Any:
                 "Set LAZYLABEL_WEB_DEVICE=cpu (will be very slow) or ensure CUDA drivers are installed."
             )
 
-        # Initialize Hydra so SAM2 can locate the config file.
-        # Clear any pre-existing global Hydra instance to avoid conflicts.
+        # Ensure Hydra is initialised so SAM2 can locate its config.
+        # Clear any prior instance first to avoid "already initialised" errors.
         from hydra.core.global_hydra import GlobalHydra  # type: ignore
 
         GlobalHydra.instance().clear()
 
         config_path = Path(SAM2_CONFIG)
-        resolved_config = config_path.resolve()
-
-        if resolved_config.exists():
-            # Config file found on disk — initialize Hydra to its parent directory.
+        if config_path.is_absolute() and config_path.exists():
+            # Absolute path to a YAML file on disk (e.g. a custom config).
             from hydra import initialize_config_dir  # type: ignore
 
-            initialize_config_dir(config_dir=str(resolved_config.parent), version_base="1.2")
-            config_name = resolved_config.stem
+            initialize_config_dir(config_dir=str(config_path.parent), version_base="1.2")
+            config_name = config_path.stem
         else:
-            # Config not found on disk; treat it as a name relative to the working
-            # directory so SAM2 can resolve it via its own search paths.
-            from hydra import initialize  # type: ignore
+            # Bundled SAM2 config name (e.g. "configs/sam2.1/sam2.1_hiera_large.yaml").
+            # Initialise Hydra from the installed SAM2 package so its configs are on
+            # the search path.
+            from hydra import initialize_config_module  # type: ignore
 
-            initialize(config_path=".", version_base="1.2")
+            initialize_config_module("sam2", version_base="1.2")
             config_name = SAM2_CONFIG
 
         _predictor = build_sam2_video_predictor(config_name, str(weights_path), device=device)
