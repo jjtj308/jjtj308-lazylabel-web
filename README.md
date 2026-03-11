@@ -23,7 +23,7 @@ A localhost web application for video mask propagation using [SAM2.1](https://gi
 pip install git+https://github.com/facebookresearch/sam2.git
 ```
 
-Download SAM2.1 weights (e.g. `sam2.1_hiera_large.pt`) from the [SAM2 releases](https://github.com/facebookresearch/sam2/releases).
+Download the SAM2.1 checkpoint (e.g. `sam2.1_hiera_large.pt`) from the [SAM2 releases page](https://github.com/facebookresearch/sam2/releases).
 
 ### 2. Backend
 
@@ -33,23 +33,37 @@ pip install -e .
 # or: uv sync
 ```
 
-Configure via environment variables (optional — defaults shown):
+Set the one **required** environment variable pointing to your downloaded checkpoint:
 
-| Variable | Default | Description |
-|---|---|---|
-| `LAZYLABEL_WEB_SAM2_WEIGHTS` | _(required)_ | Absolute path to SAM2 `.pt` weights file |
-| `LAZYLABEL_WEB_SAM2_CONFIG` | `configs/sam2.1/sam2.1_hiera_large.yaml` | SAM2 config YAML |
-| `LAZYLABEL_WEB_DEVICE` | `cuda` | `cuda`, `cpu`, or `mps` |
-| `LAZYLABEL_WEB_DATA_DIR` | platform default¹ | Where projects are stored |
-
-¹ Linux: `~/.local/share/lazylabel-web` · macOS: `~/Library/Application Support/lazylabel-web` · Windows: `%APPDATA%\lazylabel-web`
+```bash
+export LAZYLABEL_WEB_SAM2_CHECKPOINT=/path/to/sam2.1_hiera_large.pt
+```
 
 Start the backend:
 
 ```bash
-export LAZYLABEL_WEB_SAM2_WEIGHTS=/path/to/sam2.1_hiera_large.pt
 uvicorn app.main:app --reload --port 8000
 ```
+
+#### Environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `LAZYLABEL_WEB_SAM2_CHECKPOINT` | _(required)_ | Absolute path to the SAM2 `.pt` checkpoint file |
+| `LAZYLABEL_WEB_SAM2_CONFIG` | `configs/sam2.1/sam2.1_hiera_large.yaml` | SAM2 config — bundled config name **or** absolute path to a custom YAML |
+| `LAZYLABEL_WEB_DEVICE` | `cuda` | Inference device: `cuda`, `cpu`, or `mps` |
+| `LAZYLABEL_WEB_DATA_DIR` | platform default¹ | Where projects and frames are stored |
+
+¹ Linux: `~/.local/share/lazylabel-web` · macOS: `~/Library/Application Support/lazylabel-web` · Windows: `%APPDATA%\lazylabel-web`
+
+> **How SAM2 config resolution works**
+>
+> SAM2 bundles its own config YAMLs inside the installed Python package and uses
+> [Hydra](https://hydra.cc) to load them.  When `LAZYLABEL_WEB_SAM2_CONFIG` is a
+> *name* (no leading `/`), the backend initialises Hydra from the SAM2 package so
+> the bundled configs are on the search path — no manual file copying needed.
+> If you point it at an **absolute path** to an existing YAML file, Hydra is
+> initialised from that file's parent directory instead.
 
 ### 3. Frontend
 
