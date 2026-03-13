@@ -9,6 +9,7 @@ description = "LazyLabel Web backend"
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.111",
+    "python-dotenv>=1.0",
     "uvicorn[standard]>=0.29",
     "python-multipart>=0.0.9",
     "opencv-python-headless>=4.9",

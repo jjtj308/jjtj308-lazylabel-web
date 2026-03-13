@@ -51,6 +51,9 @@ def _load_predictor() -> Any:
                 "Set LAZYLABEL_WEB_DEVICE=cpu (will be very slow) or ensure CUDA drivers are installed."
             )
 
+
+
+
         # Ensure Hydra is initialised so SAM2 can locate its config.
         # Clear any prior instance first to avoid "already initialised" errors.
         from hydra.core.global_hydra import GlobalHydra  # type: ignore
@@ -58,6 +61,10 @@ def _load_predictor() -> Any:
         GlobalHydra.instance().clear()
 
         config_path = Path(SAM2_CONFIG)
+
+        if config_path.exists():
+            print("is absolute")
+        
         if config_path.is_absolute() and config_path.exists():
             # Absolute path to a YAML file on disk (e.g. a custom config).
             from hydra import initialize_config_dir  # type: ignore
@@ -72,6 +79,7 @@ def _load_predictor() -> Any:
 
             initialize_config_module("sam2", version_base="1.2")
             config_name = SAM2_CONFIG
+            print(config_name)
 
         _predictor = build_sam2_video_predictor(config_name, str(weights_path), device=device)
         return _predictor

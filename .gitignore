@@ -30,3 +30,7 @@ frontend/dist/
 
 # TypeScript build info (generated artifacts)
 *.tsbuildinfo
+
+
+*.pt
+*.yaml

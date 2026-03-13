@@ -1,9 +1,12 @@
 """LazyLabel Web — FastAPI backend."""
 from __future__ import annotations
-
 import os
 import platform
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env from repo root (optional). Install with: pip install python-dotenv
+load_dotenv()
 
 
 def _default_storage() -> Path:
@@ -21,12 +24,11 @@ def _default_storage() -> Path:
 DATA_DIR: Path = Path(os.environ.get("LAZYLABEL_WEB_DATA_DIR", str(_default_storage())))
 
 # Path to the SAM2 checkpoint (.pt) file — required.
-# Set LAZYLABEL_WEB_SAM2_CHECKPOINT=/path/to/sam2.1_hiera_large.pt
+# Prefer setting LAZYLABEL_WEB_SAM2_CHECKPOINT in your .env or environment.
 SAM2_CHECKPOINT: str = os.environ.get("LAZYLABEL_WEB_SAM2_CHECKPOINT", "")
 
 # SAM2 config — a bundled config name (e.g. "configs/sam2.1/sam2.1_hiera_large.yaml")
-# or an absolute path to a custom YAML file.
-# Set LAZYLABEL_WEB_SAM2_CONFIG to override.
+# or an absolute path to a custom YAML file. Override with LAZYLABEL_WEB_SAM2_CONFIG.
 SAM2_CONFIG: str = os.environ.get(
     "LAZYLABEL_WEB_SAM2_CONFIG", "configs/sam2.1/sam2.1_hiera_large.yaml"
 )
