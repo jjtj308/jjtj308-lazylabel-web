@@ -5,7 +5,10 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, Response
 
 from app.models.schemas import (
+    ClassAlias,
+    ClassAliasesRequest,
     FrameInfo,
+    FrameLabelRequest,
     ImportVideoRequest,
     ImportVideoResponse,
     ProjectMeta,
@@ -104,3 +107,32 @@ def export_project(project_id: str) -> Response:
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+# ── Class aliases ──────────────────────────────────────────────────────────────
+
+
+@router.get("/projects/{project_id}/classes", response_model=list[ClassAlias])
+def get_classes(project_id: str) -> list[ClassAlias]:
+    if project_service.get_project(project_id) is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return project_service.get_classes(project_id)
+
+
+@router.put("/projects/{project_id}/classes")
+def save_classes(project_id: str, body: ClassAliasesRequest) -> dict:
+    if project_service.get_project(project_id) is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    project_service.save_classes(project_id, body.classes)
+    return {"saved": len(body.classes)}
+
+
+# ── Frame labels ───────────────────────────────────────────────────────────────
+
+
+@router.put("/projects/{project_id}/frames/{frame_index}/label")
+def set_frame_label(project_id: str, frame_index: int, body: FrameLabelRequest) -> dict:
+    if project_service.get_project(project_id) is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    project_service.set_frame_label(project_id, frame_index, body.class_id)
+    return {"frame_index": frame_index, "class_id": body.class_id}

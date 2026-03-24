@@ -17,6 +17,13 @@ export interface ProjectMeta extends ProjectSummary {
 export interface FrameInfo {
   frame_index: number
   has_mask: boolean
+  class_id: number | null
+}
+
+export interface ClassAlias {
+  id: number
+  name: string
+  color: string
 }
 
 export interface Point {
@@ -134,4 +141,24 @@ export const api = {
     }),
 
   getJob: (jobId: string) => request<JobResponse>(`/jobs/${jobId}`),
+
+  getClasses: (projectId: string) =>
+    request<ClassAlias[]>(`/projects/${projectId}/classes`),
+
+  saveClasses: (projectId: string, classes: ClassAlias[]) =>
+    request<{ saved: number }>(`/projects/${projectId}/classes`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ classes }),
+    }),
+
+  setFrameLabel: (projectId: string, frameIndex: number, classId: number | null) =>
+    request<{ frame_index: number; class_id: number | null }>(
+      `/projects/${projectId}/frames/${frameIndex}/label`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ class_id: classId }),
+      },
+    ),
 }
